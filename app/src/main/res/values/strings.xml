@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AgainDue</string>
+    <string name="reminder_channel_name">Reminders</string>
+    <string name="reminder_channel_description">Notifications when an item is due</string>
+    <string name="reminder_done">Done</string>
+    <string name="reminder_snooze">Snooze 1 day</string>
+</resources>

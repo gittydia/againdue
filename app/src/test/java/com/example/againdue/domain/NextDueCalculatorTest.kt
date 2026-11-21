@@ -3,6 +3,7 @@ package com.example.againdue.domain
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 class NextDueCalculatorTest {
@@ -98,5 +99,136 @@ class NextDueCalculatorTest {
         assertThrows(IllegalArgumentException::class.java) {
             NextDueCalculator.nextDue(LocalDate.of(2026, 11, 10), -3, IntervalUnit.WEEK)
         }
+    }
+
+    @Test
+    fun `legacy monthly interval remains completion based`() {
+        val result = NextDueCalculator.nextRecurrence(
+            lastDoneAt = LocalDate.of(2026, 2, 28),
+            recurrence = RecurrenceConfig(
+                intervalValue = 1,
+                intervalUnit = IntervalUnit.MONTH,
+                startDate = LocalDate.of(2026, 1, 31),
+            ),
+        )
+
+        assertEquals(LocalDate.of(2026, 3, 28), result.nextDueAt)
+        assertEquals(false, result.ended)
+    }
+
+    @Test
+    fun `monthly calendar date stays anchored to start day after a short month`() {
+        val recurrence = RecurrenceConfig(
+            intervalValue = 1,
+            intervalUnit = IntervalUnit.MONTH,
+            startDate = LocalDate.of(2028, 1, 31),
+            pattern = RecurrencePattern.MonthlyDate,
+        )
+
+        val february = NextDueCalculator.nextRecurrence(
+            lastDoneAt = LocalDate.of(2028, 1, 31),
+            recurrence = recurrence,
+        )
+        val march = NextDueCalculator.nextRecurrence(
+            lastDoneAt = february.nextDueAt,
+            recurrence = recurrence,
+        )
+
+        assertEquals(LocalDate.of(2028, 2, 29), february.nextDueAt)
+        assertEquals(LocalDate.of(2028, 3, 31), march.nextDueAt)
+    }
+
+    @Test
+    fun `monthly calendar date is never before a future start date`() {
+        val result = NextDueCalculator.nextRecurrence(
+            lastDoneAt = LocalDate.of(2026, 11, 1),
+            recurrence = RecurrenceConfig(
+                intervalValue = 1,
+                intervalUnit = IntervalUnit.MONTH,
+                startDate = LocalDate.of(2026, 11, 20),
+                pattern = RecurrencePattern.MonthlyDate,
+            ),
+        )
+
+        assertEquals(LocalDate.of(2026, 11, 20), result.nextDueAt)
+    }
+
+    @Test
+    fun `first Monday strictly after completion skips a match before the start date`() {
+        val result = NextDueCalculator.nextRecurrence(
+            lastDoneAt = LocalDate.of(2026, 11, 20),
+            recurrence = RecurrenceConfig(
+                intervalValue = 1,
+                intervalUnit = IntervalUnit.MONTH,
+                startDate = LocalDate.of(2026, 11, 20),
+                pattern = RecurrencePattern.MonthlyNthWeekday(
+                    ordinal = WeekOrdinal.FIRST,
+                    dayOfWeek = DayOfWeek.MONDAY,
+                ),
+            ),
+        )
+
+        assertEquals(LocalDate.of(2026, 12, 7), result.nextDueAt)
+    }
+
+    @Test
+    fun `last Friday supports multi-month intervals anchored to the start month`() {
+        val result = NextDueCalculator.nextRecurrence(
+            lastDoneAt = LocalDate.of(2026, 11, 28),
+            recurrence = RecurrenceConfig(
+                intervalValue = 2,
+                intervalUnit = IntervalUnit.MONTH,
+                startDate = LocalDate.of(2026, 11, 20),
+                pattern = RecurrencePattern.MonthlyNthWeekday(
+                    ordinal = WeekOrdinal.LAST,
+                    dayOfWeek = DayOfWeek.FRIDAY,
+                ),
+            ),
+        )
+
+        assertEquals(LocalDate.of(2027, 1, 29), result.nextDueAt)
+    }
+
+    @Test
+    fun `fourth Sunday is calculated within the matching month`() {
+        val result = NextDueCalculator.nextRecurrence(
+            lastDoneAt = LocalDate.of(2026, 10, 31),
+            recurrence = RecurrenceConfig(
+                intervalValue = 1,
+                intervalUnit = IntervalUnit.MONTH,
+                startDate = LocalDate.of(2026, 10, 1),
+                pattern = RecurrencePattern.MonthlyNthWeekday(
+                    ordinal = WeekOrdinal.FOURTH,
+                    dayOfWeek = DayOfWeek.SUNDAY,
+                ),
+            ),
+        )
+
+        assertEquals(LocalDate.of(2026, 11, 22), result.nextDueAt)
+    }
+
+    @Test
+    fun `end date allows its matching occurrence and ends afterward`() {
+        val recurrence = RecurrenceConfig(
+            intervalValue = 1,
+            intervalUnit = IntervalUnit.MONTH,
+            startDate = LocalDate.of(2026, 11, 20),
+            pattern = RecurrencePattern.MonthlyDate,
+            endDate = LocalDate.of(2026, 12, 20),
+        )
+
+        val finalOccurrence = NextDueCalculator.nextRecurrence(
+            lastDoneAt = LocalDate.of(2026, 11, 20),
+            recurrence = recurrence,
+        )
+        val ended = NextDueCalculator.nextRecurrence(
+            lastDoneAt = finalOccurrence.nextDueAt,
+            recurrence = recurrence,
+        )
+
+        assertEquals(LocalDate.of(2026, 12, 20), finalOccurrence.nextDueAt)
+        assertEquals(false, finalOccurrence.ended)
+        assertEquals(LocalDate.of(2027, 1, 20), ended.nextDueAt)
+        assertEquals(true, ended.ended)
     }
 }

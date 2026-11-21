@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTextClearance
 import androidx.compose.ui.test.performTextInput
 import androidx.room.Room
@@ -65,7 +66,7 @@ class ItemFormScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag("save_button").performClick()
+        composeRule.onNodeWithTag("save_button").performScrollTo().performClick()
 
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithText("Enter a name").fetchSemanticsNodes().isNotEmpty()
@@ -89,7 +90,7 @@ class ItemFormScreenTest {
 
         composeRule.onNodeWithTag("name_field").performTextInput("Water filter")
         composeRule.onNodeWithTag("interval_field").performTextInput("3")
-        composeRule.onNodeWithTag("save_button").performClick()
+        composeRule.onNodeWithTag("save_button").performScrollTo().performClick()
 
         composeRule.waitUntil(5_000) { closed.get() }
 
@@ -125,7 +126,7 @@ class ItemFormScreenTest {
         composeRule.onNodeWithTag("name_field").assertTextContains("Passport")
         composeRule.onNodeWithTag("name_field").performTextClearance()
         composeRule.onNodeWithTag("name_field").performTextInput("Renewed passport")
-        composeRule.onNodeWithTag("save_button").performClick()
+        composeRule.onNodeWithTag("save_button").performScrollTo().performClick()
 
         composeRule.waitUntil(5_000) { closed.get() }
         composeRule.waitUntil(5_000) {
@@ -155,7 +156,7 @@ class ItemFormScreenTest {
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithTag("archive_button").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("archive_button").performClick()
+        composeRule.onNodeWithTag("archive_button").performScrollTo().performClick()
 
         composeRule.waitUntil(5_000) { closed.get() }
         composeRule.waitUntil(5_000) {
@@ -185,7 +186,7 @@ class ItemFormScreenTest {
         composeRule.waitUntil(5_000) {
             composeRule.onAllNodesWithTag("delete_button").fetchSemanticsNodes().isNotEmpty()
         }
-        composeRule.onNodeWithTag("delete_button").performClick()
+        composeRule.onNodeWithTag("delete_button").performScrollTo().performClick()
         composeRule.onNodeWithText("Delete this item?").assertIsDisplayed()
         composeRule.onNodeWithText("Delete").performClick()
 

@@ -23,6 +23,9 @@ import java.time.LocalDate
  * [recurrenceEnded] is set once an item passes [endDate] or reaches
  * [endAfterCount] completions. The item stays visible, but reminders stop and
  * it can no longer be completed.
+ *
+ * [reminderMinuteOfDay] overrides the global reminder time when present. It is
+ * the number of minutes after local midnight, from 0 through 1439.
  */
 @Entity(tableName = "items")
 data class Item(
@@ -42,4 +45,5 @@ data class Item(
     val endAfterCount: Int? = null,
     @ColumnInfo(defaultValue = "0") val recurrenceEnded: Boolean = false,
     @ColumnInfo(defaultValue = "0") val completedCount: Int = 0,
+    val reminderMinuteOfDay: Int? = null,
 )

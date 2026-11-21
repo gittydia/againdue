@@ -40,10 +40,14 @@ data class ItemFormState(
     val endMode: RecurrenceEndMode = RecurrenceEndMode.NEVER,
     val endDate: LocalDate? = null,
     val endAfterCountText: String = "",
+    val useCustomReminderTime: Boolean = false,
+    val reminderMinuteOfDay: Int = DEFAULT_REMINDER_MINUTE_OF_DAY,
 ) {
     fun intervalValueOrNull(): Int? = intervalText.trim().toIntOrNull()
 
     fun endAfterCountOrNull(): Int? = endAfterCountText.trim().toIntOrNull()
+
+    fun reminderTimeOverride(): Int? = reminderMinuteOfDay.takeIf { useCustomReminderTime }
 
     fun pattern(): RecurrencePattern? {
         if (unit != IntervalUnit.MONTH) return null
@@ -85,5 +89,9 @@ data class ItemFormState(
 
             else -> if (count <= 0) "Must be at least 1" else null
         }
+    }
+
+    companion object {
+        const val DEFAULT_REMINDER_MINUTE_OF_DAY = 9 * 60
     }
 }

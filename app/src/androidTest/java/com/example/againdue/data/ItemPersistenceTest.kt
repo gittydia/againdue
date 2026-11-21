@@ -110,6 +110,40 @@ class ItemPersistenceTest {
     }
 
     @Test
+    fun reminderOverride_canBePersistedAndCleared() = runBlocking {
+        val id = repository.createItem(
+            name = "Water plants",
+            intervalValue = 7,
+            intervalUnit = IntervalUnit.DAY,
+            lastDoneAt = LocalDate.of(2026, 11, 10),
+            reminderMinuteOfDay = 20 * 60 + 15,
+        )
+
+        simulateRestart()
+        assertEquals(20 * 60 + 15, repository.getItem(id)!!.reminderMinuteOfDay)
+
+        val item = repository.getItem(id)!!
+        assertTrue(
+            repository.updateItem(
+                id = id,
+                name = item.name,
+                intervalValue = item.intervalValue,
+                intervalUnit = item.intervalUnit,
+                lastDoneAt = item.lastDoneAt,
+                note = item.note,
+                startDate = item.startDate,
+                pattern = item.pattern,
+                endDate = item.endDate,
+                endAfterCount = item.endAfterCount,
+                reminderMinuteOfDay = null,
+            ),
+        )
+
+        simulateRestart()
+        assertNull(repository.getItem(id)!!.reminderMinuteOfDay)
+    }
+
+    @Test
     fun complete_recordsHistoryAndAdvancesSchedule_atomically() = runBlocking {
         val id = repository.createItem(
             name = "Water plants",

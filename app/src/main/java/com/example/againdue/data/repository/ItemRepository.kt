@@ -68,7 +68,9 @@ class ItemRepository(
         pattern: RecurrencePattern? = null,
         endDate: LocalDate? = null,
         endAfterCount: Int? = null,
+        reminderMinuteOfDay: Int? = null,
     ): Long {
+        requireReminderMinuteOfDay(reminderMinuteOfDay)
         val now = Instant.now(clock)
         val recurrence = RecurrenceConfig(
             intervalValue = intervalValue,
@@ -93,6 +95,7 @@ class ItemRepository(
             endDate = endDate,
             endAfterCount = endAfterCount,
             recurrenceEnded = schedule.ended,
+            reminderMinuteOfDay = reminderMinuteOfDay,
         )
         val id = itemDao.insert(item)
         reminderSynchronizer.syncItem(id)
@@ -116,8 +119,10 @@ class ItemRepository(
         pattern: RecurrencePattern? = null,
         endDate: LocalDate? = null,
         endAfterCount: Int? = null,
+        reminderMinuteOfDay: Int? = null,
     ): Boolean {
         val existing = itemDao.getById(id) ?: return false
+        requireReminderMinuteOfDay(reminderMinuteOfDay)
         val recurrence = RecurrenceConfig(
             intervalValue = intervalValue,
             intervalUnit = intervalUnit,
@@ -144,6 +149,7 @@ class ItemRepository(
             endDate = endDate,
             endAfterCount = endAfterCount,
             recurrenceEnded = schedule.ended,
+            reminderMinuteOfDay = reminderMinuteOfDay,
         )
         itemDao.update(updated)
         reminderSynchronizer.syncItem(id)
@@ -248,6 +254,12 @@ class ItemRepository(
 
     private fun normalizeNote(note: String?): String? =
         note?.trim()?.takeIf { it.isNotEmpty() }
+
+    private fun requireReminderMinuteOfDay(reminderMinuteOfDay: Int?) {
+        require(reminderMinuteOfDay == null || reminderMinuteOfDay in 0..1439) {
+            "Reminder minute of day must be between 0 and 1439"
+        }
+    }
 
     private fun Item.toSummary(): ItemSummary = ItemSummary(
         id = id,

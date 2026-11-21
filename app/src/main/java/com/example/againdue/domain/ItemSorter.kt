@@ -6,13 +6,15 @@ import java.util.Comparator
  * Orders the active home list by urgency.
  *
  * Ordering is ascending by due date, which naturally puts the most overdue item
- * first, followed by items due today and then upcoming items. Ties fall back to
- * name (case-insensitive) so the list does not jump between recompositions.
+ * first, followed by items due today and then upcoming items. Items whose
+ * recurrence has ended always sink to the bottom. Ties fall back to name
+ * (case-insensitive) so the list does not jump between recompositions.
  */
 object ItemSorter {
 
     private val urgencyOrder: Comparator<ItemSummary> =
-        compareBy<ItemSummary> { it.nextDueAt }
+        compareBy<ItemSummary> { it.ended }
+            .thenBy { it.nextDueAt }
             .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }
             .thenBy { it.id }
 

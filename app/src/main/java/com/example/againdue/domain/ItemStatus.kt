@@ -39,9 +39,20 @@ sealed interface ItemStatus {
             get() = if (days == 1L) "Due in 1 day" else "Due in $days days"
     }
 
+    /** The item's recurrence has run its course and no longer needs action. */
+    data object Ended : ItemStatus {
+        override val label: String = "Ended"
+    }
+
     companion object {
-        /** Derives the status of an item due at [nextDueAt] relative to [today]. */
-        fun from(nextDueAt: LocalDate, today: LocalDate): ItemStatus {
+        /**
+         * Derives the status of an item due at [nextDueAt] relative to [today].
+         *
+         * An [ended] recurrence takes precedence over date buckets: the stored
+         * due date is only the last occurrence that was still allowed.
+         */
+        fun from(nextDueAt: LocalDate, today: LocalDate, ended: Boolean = false): ItemStatus {
+            if (ended) return Ended
             val daysUntilDue = ChronoUnit.DAYS.between(today, nextDueAt)
             return when {
                 daysUntilDue < 0L -> Overdue(-daysUntilDue)

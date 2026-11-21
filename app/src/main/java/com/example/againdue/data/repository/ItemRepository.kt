@@ -8,6 +8,9 @@ import com.example.againdue.domain.IntervalUnit
 import com.example.againdue.domain.ItemSorter
 import com.example.againdue.domain.ItemSummary
 import com.example.againdue.domain.NextDueCalculator
+import com.example.againdue.domain.RecurrenceConfig
+import com.example.againdue.domain.RecurrencePattern
+import com.example.againdue.domain.RecurrenceResult
 import com.example.againdue.domain.ReminderSynchronizer
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -61,24 +64,47 @@ class ItemRepository(
         intervalUnit: IntervalUnit,
         lastDoneAt: LocalDate,
         note: String? = null,
+        startDate: LocalDate? = null,
+        pattern: RecurrencePattern? = null,
+        endDate: LocalDate? = null,
+        endAfterCount: Int? = null,
     ): Long {
         val now = Instant.now(clock)
+        val recurrence = RecurrenceConfig(
+            intervalValue = intervalValue,
+            intervalUnit = intervalUnit,
+            startDate = startDate ?: lastDoneAt,
+            pattern = pattern,
+            endDate = endDate,
+            endAfterCount = endAfterCount,
+        )
+        val schedule = NextDueCalculator.nextRecurrence(lastDoneAt, recurrence)
         val item = Item(
             name = requireName(name),
             intervalValue = intervalValue,
             intervalUnit = intervalUnit,
             lastDoneAt = lastDoneAt,
-            nextDueAt = NextDueCalculator.nextDue(lastDoneAt, intervalValue, intervalUnit),
+            nextDueAt = schedule.nextDueAt,
             note = normalizeNote(note),
             createdAt = now,
             updatedAt = now,
+            startDate = recurrence.startDate,
+            pattern = pattern,
+            endDate = endDate,
+            endAfterCount = endAfterCount,
+            recurrenceEnded = schedule.ended,
         )
         val id = itemDao.insert(item)
         reminderSynchronizer.syncItem(id)
         return id
     }
 
-    /** Updates an item and recomputes its due date. Returns false when it no longer exists. */
+    /**
+     * Updates an item and recomputes its due date from the supplied definition.
+     *
+     * The recurrence fields are replaced verbatim: passing a null pattern turns
+     * the item back into a plain completion-based interval.
+     */
     suspend fun updateItem(
         id: Long,
         name: String,
@@ -86,16 +112,38 @@ class ItemRepository(
         intervalUnit: IntervalUnit,
         lastDoneAt: LocalDate,
         note: String? = null,
+        startDate: LocalDate? = null,
+        pattern: RecurrencePattern? = null,
+        endDate: LocalDate? = null,
+        endAfterCount: Int? = null,
     ): Boolean {
         val existing = itemDao.getById(id) ?: return false
+        val recurrence = RecurrenceConfig(
+            intervalValue = intervalValue,
+            intervalUnit = intervalUnit,
+            startDate = startDate ?: lastDoneAt,
+            pattern = pattern,
+            endDate = endDate,
+            endAfterCount = endAfterCount,
+        )
+        val schedule = NextDueCalculator.nextRecurrence(
+            lastDoneAt = lastDoneAt,
+            recurrence = recurrence,
+            completedCount = existing.completedCount,
+        )
         val updated = existing.copy(
             name = requireName(name),
             intervalValue = intervalValue,
             intervalUnit = intervalUnit,
             lastDoneAt = lastDoneAt,
-            nextDueAt = NextDueCalculator.nextDue(lastDoneAt, intervalValue, intervalUnit),
+            nextDueAt = schedule.nextDueAt,
             note = normalizeNote(note),
             updatedAt = Instant.now(clock),
+            startDate = recurrence.startDate,
+            pattern = pattern,
+            endDate = endDate,
+            endAfterCount = endAfterCount,
+            recurrenceEnded = schedule.ended,
         )
         itemDao.update(updated)
         reminderSynchronizer.syncItem(id)
@@ -113,20 +161,25 @@ class ItemRepository(
     ): Completion? {
         val completion = database.withTransaction {
             val item = itemDao.getById(id) ?: return@withTransaction null
+            if (item.recurrenceEnded) return@withTransaction null
             val completion = Completion(
                 itemId = id,
                 completedAt = Instant.now(clock),
                 previousLastDoneAt = item.lastDoneAt,
             )
             val completionId = completionDao.insert(completion)
+            val completedCount = item.completedCount + 1
+            val schedule = NextDueCalculator.nextRecurrence(
+                lastDoneAt = completedOn,
+                recurrence = item.toRecurrenceConfig(),
+                completedCount = completedCount,
+            )
             itemDao.update(
                 item.copy(
                     lastDoneAt = completedOn,
-                    nextDueAt = NextDueCalculator.nextDue(
-                        completedOn,
-                        item.intervalValue,
-                        item.intervalUnit,
-                    ),
+                    nextDueAt = schedule.nextDueAt,
+                    completedCount = completedCount,
+                    recurrenceEnded = schedule.ended,
                     updatedAt = Instant.now(clock),
                 ),
             )
@@ -146,14 +199,18 @@ class ItemRepository(
         val undone = database.withTransaction {
             val completion = completionDao.latestForItem(itemId) ?: return@withTransaction false
             val item = itemDao.getById(itemId) ?: return@withTransaction false
+            val completedCount = (item.completedCount - 1).coerceAtLeast(0)
+            val schedule = NextDueCalculator.nextRecurrence(
+                lastDoneAt = completion.previousLastDoneAt,
+                recurrence = item.toRecurrenceConfig(),
+                completedCount = completedCount,
+            )
             itemDao.update(
                 item.copy(
                     lastDoneAt = completion.previousLastDoneAt,
-                    nextDueAt = NextDueCalculator.nextDue(
-                        completion.previousLastDoneAt,
-                        item.intervalValue,
-                        item.intervalUnit,
-                    ),
+                    nextDueAt = schedule.nextDueAt,
+                    completedCount = completedCount,
+                    recurrenceEnded = schedule.ended,
                     updatedAt = Instant.now(clock),
                 ),
             )
@@ -197,5 +254,15 @@ class ItemRepository(
         name = name,
         nextDueAt = nextDueAt,
         archived = archived,
+        ended = recurrenceEnded,
+    )
+
+    private fun Item.toRecurrenceConfig(): RecurrenceConfig = RecurrenceConfig(
+        intervalValue = intervalValue,
+        intervalUnit = intervalUnit,
+        startDate = startDate ?: lastDoneAt,
+        pattern = pattern,
+        endDate = endDate,
+        endAfterCount = endAfterCount,
     )
 }

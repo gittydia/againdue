@@ -17,16 +17,17 @@ object ReminderScheduleCalculator {
     /** Delay used when an overdue item has not been notified for its due date. */
     val OVERDUE_DELAY: Duration = Duration.ofSeconds(5)
 
-    /** Applies the global reminder time to an item's local due date. */
     fun dueAt(
         nextDueAt: LocalDate,
-        hour: Int,
-        minute: Int,
+        minuteOfDay: Int,
         zoneId: ZoneId,
     ): Instant {
-        require(hour in 0..23) { "Hour must be between 0 and 23" }
-        require(minute in 0..59) { "Minute must be between 0 and 59" }
-        return nextDueAt.atTime(hour, minute).atZone(zoneId).toInstant()
+        require(minuteOfDay in 0..1439) { "Minute of day must be between 0 and 1439" }
+        return nextDueAt
+            .atStartOfDay()
+            .plusMinutes(minuteOfDay.toLong())
+            .atZone(zoneId)
+            .toInstant()
     }
 
     /**

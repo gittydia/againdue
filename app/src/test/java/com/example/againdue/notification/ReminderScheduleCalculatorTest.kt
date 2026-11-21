@@ -17,8 +17,7 @@ class ReminderScheduleCalculatorTest {
     fun dueAtUsesLocalReminderTimeOnDueDate() {
         val dueAt = ReminderScheduleCalculator.dueAt(
             nextDueAt = LocalDate.of(2026, 11, 18),
-            hour = 21,
-            minute = 30,
+            minuteOfDay = 21 * 60 + 30,
             zoneId = zone,
         )
 
@@ -28,10 +27,10 @@ class ReminderScheduleCalculatorTest {
     @Test
     fun dueAtRejectsInvalidTime() {
         assertThrows(IllegalArgumentException::class.java) {
-            ReminderScheduleCalculator.dueAt(LocalDate.now(), 24, 0, zone)
+            ReminderScheduleCalculator.dueAt(LocalDate.now(), -1, zone)
         }
         assertThrows(IllegalArgumentException::class.java) {
-            ReminderScheduleCalculator.dueAt(LocalDate.now(), 0, 60, zone)
+            ReminderScheduleCalculator.dueAt(LocalDate.now(), 1440, zone)
         }
     }
 

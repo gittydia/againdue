@@ -129,7 +129,15 @@ private fun homeFactory(container: AppContainer) = viewModelFactory {
 }
 
 private fun formFactory(container: AppContainer, itemId: Long?) = viewModelFactory {
-    initializer { ItemFormViewModel(container.itemRepository, container.clock, itemId) }
+    initializer {
+        val settings = container.reminderSettings.current()
+        ItemFormViewModel(
+            repository = container.itemRepository,
+            clock = container.clock,
+            itemId = itemId,
+            defaultReminderMinuteOfDay = settings.hour * 60 + settings.minute,
+        )
+    }
 }
 
 private fun settingsFactory(container: AppContainer) = viewModelFactory {

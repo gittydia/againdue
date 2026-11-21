@@ -39,13 +39,23 @@ class ItemFormViewModel(
     private val repository: ItemRepository,
     private val clock: Clock = Clock.systemDefaultZone(),
     private val itemId: Long? = null,
+    private val defaultReminderMinuteOfDay: Int = ItemFormState.DEFAULT_REMINDER_MINUTE_OF_DAY,
 ) : ViewModel() {
+
+    init {
+        require(defaultReminderMinuteOfDay in 0..(24 * 60 - 1)) {
+            "Reminder time must be within a day"
+        }
+    }
 
     val isEditing: Boolean = itemId != null
 
     private val _uiState = MutableStateFlow(
         ItemFormUiState(
-            form = ItemFormState(lastDoneAt = LocalDate.now(clock)),
+            form = ItemFormState(
+                lastDoneAt = LocalDate.now(clock),
+                reminderMinuteOfDay = defaultReminderMinuteOfDay,
+            ),
             isLoading = itemId != null,
         ),
     )
@@ -90,6 +100,9 @@ class ItemFormViewModel(
                                 },
                                 endDate = item.endDate,
                                 endAfterCountText = item.endAfterCount?.toString().orEmpty(),
+                                useCustomReminderTime = item.reminderMinuteOfDay != null,
+                                reminderMinuteOfDay = item.reminderMinuteOfDay
+                                    ?: defaultReminderMinuteOfDay,
                             ),
                         )
                     }
@@ -171,6 +184,18 @@ class ItemFormViewModel(
         }
     }
 
+    fun onUseCustomReminderTimeChange(enabled: Boolean) {
+        _uiState.update { it.copy(form = it.form.copy(useCustomReminderTime = enabled)) }
+    }
+
+    fun onReminderTimeChange(hour: Int, minute: Int) {
+        require(hour in 0..23) { "Hour must be between 0 and 23" }
+        require(minute in 0..59) { "Minute must be between 0 and 59" }
+        _uiState.update {
+            it.copy(form = it.form.copy(reminderMinuteOfDay = hour * 60 + minute))
+        }
+    }
+
     fun save() {
         val form = _uiState.value.form
         val errors = form.errors()
@@ -201,6 +226,7 @@ class ItemFormViewModel(
                     pattern = pattern,
                     endDate = endDate,
                     endAfterCount = endAfterCount,
+                    reminderMinuteOfDay = form.reminderTimeOverride(),
                 )
                 eventsChannel.send(ItemFormEvent.Saved)
             } else {
@@ -215,6 +241,7 @@ class ItemFormViewModel(
                     pattern = pattern,
                     endDate = endDate,
                     endAfterCount = endAfterCount,
+                    reminderMinuteOfDay = form.reminderTimeOverride(),
                 )
                 _uiState.update { it.copy(isSaving = false) }
                 eventsChannel.send(if (updated) ItemFormEvent.Saved else ItemFormEvent.Missing)

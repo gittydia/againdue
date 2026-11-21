@@ -54,7 +54,7 @@ class SettingsScreenTest {
 
         composeRule.onNodeWithTag("reminders_switch").assertIsOff()
         composeRule.onNodeWithText("09:00").assertIsDisplayed()
-        composeRule.onNodeWithText("Reminder time").assertIsDisplayed()
+        composeRule.onNodeWithText("Default reminder time").assertIsDisplayed()
         composeRule.onNodeWithTag("notification_status").assertIsDisplayed()
     }
 

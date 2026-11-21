@@ -123,7 +123,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        text = "Notify once an item is due, at the time below.",
+                        text = "Notify once an item is due. Items can use the default time below or choose their own.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -154,7 +154,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
             ) {
                 Row {
                     Text(
-                        text = "Reminder time",
+                        text = "Default reminder time",
                         style = MaterialTheme.typography.titleMedium,
                         modifier = Modifier.weight(1f),
                     )
@@ -166,7 +166,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 }
                 Spacer(Modifier.height(2.dp))
                 Text(
-                    text = "Reminders may arrive a few minutes late to save battery.",
+                        text = "Items without a custom time use this default. Reminders may arrive a few minutes late to save battery.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )

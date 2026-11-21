@@ -55,13 +55,6 @@ class ReminderScheduler(
         val now = Instant.now(clock)
         val current = settings.current()
         val allItems = items.all()
-        if (!current.enabled) {
-            allItems.forEach { item ->
-                alarms.cancel(item.id)
-                notifications.cancel(item.id)
-            }
-            return
-        }
         allItems.forEach { item ->
             schedule(item, current, now, cancelNotification = false)
         }
@@ -76,17 +69,20 @@ class ReminderScheduler(
             return false
         }
         val current = settings.current()
-        if (!current.enabled || item.archived || item.recurrenceEnded) {
-            alarms.cancel(itemId)
-            notifications.cancel(itemId)
-            return false
+        val resolution = ReminderScheduleResolver.resolve(item, current, zoneId())
+        val dueAt = when (resolution) {
+            is ReminderScheduleResolution.Active -> resolution.dueAt
+            ReminderScheduleResolution.GloballyDisabled -> {
+                alarms.cancel(itemId)
+                notifications.cancel(itemId)
+                return false
+            }
+
+            ReminderScheduleResolution.InactiveItem -> {
+                forget(itemId)
+                return false
+            }
         }
-        val dueAt = ReminderScheduleCalculator.dueAt(
-            nextDueAt = item.nextDueAt,
-            hour = current.hour,
-            minute = current.minute,
-            zoneId = zoneId(),
-        )
         if (dueAt.isAfter(now.plusSeconds(60))) return false
         val snoozeUntil = state.snoozeUntil(itemId)
         if (snoozeUntil?.isAfter(now) == true) return false
@@ -110,10 +106,18 @@ class ReminderScheduler(
             return
         }
         val current = settings.current()
-        if (!current.enabled || item.archived || item.recurrenceEnded) {
-            alarms.cancel(itemId)
-            notifications.cancel(itemId)
-            return
+        when (ReminderScheduleResolver.resolve(item, current, zoneId())) {
+            is ReminderScheduleResolution.Active -> Unit
+            ReminderScheduleResolution.GloballyDisabled -> {
+                alarms.cancel(itemId)
+                notifications.cancel(itemId)
+                return
+            }
+
+            ReminderScheduleResolution.InactiveItem -> {
+                forget(itemId)
+                return
+            }
         }
 
         val until = Instant.now(clock).plus(days, ChronoUnit.DAYS)
@@ -128,22 +132,20 @@ class ReminderScheduler(
         now: Instant,
         cancelNotification: Boolean,
     ) {
-        if (!current.enabled) {
-            alarms.cancel(item.id)
-            notifications.cancel(item.id)
-            return
-        }
-        if (item.archived || item.recurrenceEnded) {
-            forget(item.id)
-            return
-        }
+        val resolution = ReminderScheduleResolver.resolve(item, current, zoneId())
+        val dueAt = when (resolution) {
+            is ReminderScheduleResolution.Active -> resolution.dueAt
+            ReminderScheduleResolution.GloballyDisabled -> {
+                alarms.cancel(item.id)
+                notifications.cancel(item.id)
+                return
+            }
 
-        val dueAt = ReminderScheduleCalculator.dueAt(
-            nextDueAt = item.nextDueAt,
-            hour = current.hour,
-            minute = current.minute,
-            zoneId = zoneId(),
-        )
+            ReminderScheduleResolution.InactiveItem -> {
+                forget(item.id)
+                return
+            }
+        }
         val storedSnooze = state.snoozeUntil(item.id)
         val activeSnooze = storedSnooze?.takeIf { it.isAfter(now) }
         if (storedSnooze != null && activeSnooze == null) {

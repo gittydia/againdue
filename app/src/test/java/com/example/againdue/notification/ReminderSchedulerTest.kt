@@ -33,6 +33,21 @@ class ReminderSchedulerTest {
     }
 
     @Test
+    fun syncItemSchedulesItemOverrideInsteadOfGlobalTime() = runBlocking {
+        val harness = harness(
+            now = "2026-11-17T08:00:00Z",
+            item = item(reminderMinuteOfDay = 18 * 60 + 45),
+        )
+
+        harness.scheduler.syncItem(ITEM_ID)
+
+        assertEquals(
+            Instant.parse("2026-11-17T18:45:00Z"),
+            harness.alarms.scheduled[ITEM_ID],
+        )
+    }
+
+    @Test
     fun syncItemForArchivedItemForgetsEverything() = runBlocking {
         val harness = harness(
             now = "2026-11-17T08:00:00Z",
@@ -81,6 +96,17 @@ class ReminderSchedulerTest {
 
         assertFalse(harness.scheduler.deliver(ITEM_ID))
         assertEquals(1, harness.notifications.shown.size)
+    }
+
+    @Test
+    fun deliverUsesItemOverrideInsteadOfOverdueGlobalTime() = runBlocking {
+        val harness = harness(
+            now = "2026-11-17T10:00:00Z",
+            item = item(reminderMinuteOfDay = 18 * 60),
+        )
+
+        assertFalse(harness.scheduler.deliver(ITEM_ID))
+        assertTrue(harness.notifications.shown.isEmpty())
     }
 
     @Test
@@ -200,6 +226,7 @@ class ReminderSchedulerTest {
     private fun item(
         archived: Boolean = false,
         recurrenceEnded: Boolean = false,
+        reminderMinuteOfDay: Int? = null,
     ): Item {
         val due = LocalDate.of(2026, 11, 17)
         return Item(
@@ -211,6 +238,7 @@ class ReminderSchedulerTest {
             nextDueAt = due,
             archived = archived,
             recurrenceEnded = recurrenceEnded,
+            reminderMinuteOfDay = reminderMinuteOfDay,
             createdAt = Instant.parse("2026-11-01T00:00:00Z"),
             updatedAt = Instant.parse("2026-11-16T00:00:00Z"),
         )

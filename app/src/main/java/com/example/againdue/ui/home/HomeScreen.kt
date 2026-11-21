@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
@@ -285,6 +286,12 @@ private fun ItemCard(
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                } else if (item.ended) {
+                    Text(
+                        text = "Ended",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
             Spacer(Modifier.height(12.dp))
@@ -305,7 +312,7 @@ private fun ItemCard(
                     ) {
                         Text("Restore")
                     }
-                } else {
+                } else if (!item.ended) {
                     Spacer(Modifier.width(4.dp))
                     Button(
                         onClick = onDone,
@@ -325,11 +332,13 @@ private fun StatusLine(status: ItemStatus) {
         is ItemStatus.Overdue -> MaterialTheme.colorScheme.error
         ItemStatus.DueToday -> MaterialTheme.colorScheme.primary
         is ItemStatus.DueIn -> MaterialTheme.colorScheme.onSurfaceVariant
+        ItemStatus.Ended -> MaterialTheme.colorScheme.onSurfaceVariant
     }
     val icon = when (status) {
         is ItemStatus.Overdue -> Icons.Filled.Warning
         ItemStatus.DueToday -> Icons.Filled.DateRange
         is ItemStatus.DueIn -> Icons.Filled.Notifications
+        ItemStatus.Ended -> Icons.Filled.Done
     }
     Row(verticalAlignment = Alignment.CenterVertically) {
         Icon(

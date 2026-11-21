@@ -6,7 +6,7 @@ import com.example.againdue.data.local.Item
 import com.example.againdue.data.repository.ItemRepository
 import com.example.againdue.domain.ItemStatus
 import com.example.againdue.ui.format.dateLabel
-import com.example.againdue.ui.format.intervalLabel
+import com.example.againdue.ui.format.scheduleLabel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +30,7 @@ data class HomeItemUi(
     val lastDoneText: String,
     val status: ItemStatus,
     val archived: Boolean,
+    val ended: Boolean,
 )
 
 data class HomeUiState(
@@ -112,8 +113,14 @@ class HomeViewModel(
 private fun Item.toUi(today: LocalDate): HomeItemUi = HomeItemUi(
     id = id,
     name = name,
-    intervalText = intervalLabel(intervalValue, intervalUnit),
+    intervalText = scheduleLabel(
+        intervalValue = intervalValue,
+        unit = intervalUnit,
+        pattern = pattern,
+        startDate = startDate ?: lastDoneAt,
+    ),
     lastDoneText = "Last done ${dateLabel(lastDoneAt)}",
-    status = ItemStatus.from(nextDueAt, today),
+    status = ItemStatus.from(nextDueAt, today, ended = recurrenceEnded),
     archived = archived,
+    ended = recurrenceEnded,
 )

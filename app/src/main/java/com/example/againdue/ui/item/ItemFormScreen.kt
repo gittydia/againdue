@@ -48,8 +48,15 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.againdue.domain.IntervalUnit
+import com.example.againdue.domain.RecurrenceConfig
+import com.example.againdue.domain.WeekOrdinal
 import com.example.againdue.ui.format.dateLabel
 import com.example.againdue.ui.format.intervalUnitLabel
+import com.example.againdue.ui.format.monthlyDateLabel
+import com.example.againdue.ui.format.ordinalLabel
+import com.example.againdue.ui.format.recurrencePreview
+import com.example.againdue.ui.format.weekdayLabel
+import java.time.DayOfWeek
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -61,7 +68,7 @@ fun ItemFormScreen(
     onClose: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var showDatePicker by remember { mutableStateOf(false) }
+    var dateTarget by remember { mutableStateOf<DateTarget?>(null) }
     var confirmDelete by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel) {
@@ -150,7 +157,7 @@ fun ItemFormScreen(
                     )
                     Spacer(Modifier.height(4.dp))
                     OutlinedButton(
-                        onClick = { showDatePicker = true },
+                        onClick = { dateTarget = DateTarget.LAST_DONE },
                         modifier = Modifier
                             .fillMaxWidth()
                             .testTag("last_done_button"),
@@ -160,6 +167,203 @@ fun ItemFormScreen(
                         Text(dateLabel(state.form.lastDoneAt))
                     }
                 }
+
+                Column {
+                    Text(
+                        text = "Starts",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    OutlinedButton(
+                        onClick = { dateTarget = DateTarget.START },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("start_date_button"),
+                    ) {
+                        Icon(Icons.Filled.DateRange, contentDescription = null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(dateLabel(state.form.startDate))
+                    }
+                }
+
+                if (state.form.unit == IntervalUnit.MONTH) {
+                    Column {
+                        Text(
+                            text = "Monthly pattern",
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChip(
+                                selected = state.form.monthlyMode == MonthlyMode.INTERVAL,
+                                onClick = { viewModel.onMonthlyModeChange(MonthlyMode.INTERVAL) },
+                                label = { Text("Every N months") },
+                                modifier = Modifier.testTag("monthly_mode_interval"),
+                            )
+                            FilterChip(
+                                selected = state.form.monthlyMode == MonthlyMode.CALENDAR_DATE,
+                                onClick = { viewModel.onMonthlyModeChange(MonthlyMode.CALENDAR_DATE) },
+                                label = { Text("Day of month") },
+                                modifier = Modifier.testTag("monthly_mode_date"),
+                            )
+                            FilterChip(
+                                selected = state.form.monthlyMode == MonthlyMode.NTH_WEEKDAY,
+                                onClick = { viewModel.onMonthlyModeChange(MonthlyMode.NTH_WEEKDAY) },
+                                label = { Text("Weekday") },
+                                modifier = Modifier.testTag("monthly_mode_nth"),
+                            )
+                        }
+
+                        when (state.form.monthlyMode) {
+                            MonthlyMode.INTERVAL -> Unit
+
+                            MonthlyMode.CALENDAR_DATE -> {
+                                Spacer(Modifier.height(8.dp))
+                                Text(
+                                    text = "Repeats ${monthlyDateLabel(state.form.startDate)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+
+                            MonthlyMode.NTH_WEEKDAY -> {
+                                Spacer(Modifier.height(8.dp))
+                                WeekOrdinal.entries.chunked(3).forEach { row ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        row.forEach { ordinal ->
+                                            FilterChip(
+                                                selected = state.form.ordinal == ordinal,
+                                                onClick = { viewModel.onOrdinalChange(ordinal) },
+                                                label = {
+                                                    Text(
+                                                        ordinalLabel(ordinal)
+                                                            .replaceFirstChar { it.uppercase() },
+                                                    )
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                                DayOfWeek.entries.chunked(4).forEach { row ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        row.forEach { day ->
+                                            FilterChip(
+                                                selected = state.form.dayOfWeek == day,
+                                                onClick = { viewModel.onDayOfWeekChange(day) },
+                                                label = { Text(weekdayLabel(day).take(3)) },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Column {
+                    Text(
+                        text = "Ends",
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        FilterChip(
+                            selected = state.form.endMode == RecurrenceEndMode.NEVER,
+                            onClick = { viewModel.onEndModeChange(RecurrenceEndMode.NEVER) },
+                            label = { Text("Never") },
+                            modifier = Modifier.testTag("end_mode_never"),
+                        )
+                        FilterChip(
+                            selected = state.form.endMode == RecurrenceEndMode.ON_DATE,
+                            onClick = { viewModel.onEndModeChange(RecurrenceEndMode.ON_DATE) },
+                            label = { Text("On date") },
+                            modifier = Modifier.testTag("end_mode_date"),
+                        )
+                        FilterChip(
+                            selected = state.form.endMode == RecurrenceEndMode.AFTER_COUNT,
+                            onClick = { viewModel.onEndModeChange(RecurrenceEndMode.AFTER_COUNT) },
+                            label = { Text("After N times") },
+                            modifier = Modifier.testTag("end_mode_count"),
+                        )
+                    }
+
+                    when (state.form.endMode) {
+                        RecurrenceEndMode.NEVER -> Unit
+
+                        RecurrenceEndMode.ON_DATE -> {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedButton(
+                                onClick = { dateTarget = DateTarget.END },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("end_date_button"),
+                            ) {
+                                Icon(Icons.Filled.DateRange, contentDescription = null)
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    state.form.endDate?.let(::dateLabel) ?: "Choose end date",
+                                )
+                            }
+                        }
+
+                        RecurrenceEndMode.AFTER_COUNT -> {
+                            Spacer(Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = state.form.endAfterCountText,
+                                onValueChange = viewModel::onEndAfterCountChange,
+                                label = { Text("Completions") },
+                                singleLine = true,
+                                isError = state.errors.end != null,
+                                supportingText = state.errors.end?.let { message ->
+                                    { Text(message) }
+                                },
+                                keyboardOptions = KeyboardOptions(
+                                    keyboardType = KeyboardType.Number,
+                                ),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("end_after_field"),
+                            )
+                        }
+                    }
+
+                    if (state.form.endMode == RecurrenceEndMode.ON_DATE &&
+                        state.errors.end != null
+                    ) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = state.errors.end.orEmpty(),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                }
+
+                val preview = recurrencePreview(
+                    RecurrenceConfig(
+                        intervalValue = state.form.intervalValueOrNull() ?: 1,
+                        intervalUnit = state.form.unit,
+                        startDate = state.form.startDate,
+                        pattern = state.form.pattern(),
+                        endDate = if (state.form.endMode == RecurrenceEndMode.ON_DATE) {
+                            state.form.endDate
+                        } else {
+                            null
+                        },
+                        endAfterCount = if (state.form.endMode == RecurrenceEndMode.AFTER_COUNT) {
+                            state.form.endAfterCountOrNull()
+                        } else {
+                            null
+                        },
+                    ),
+                )
+                Text(
+                    text = preview,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.testTag("recurrence_preview"),
+                )
 
                 OutlinedTextField(
                     value = state.form.note,
@@ -210,26 +414,37 @@ fun ItemFormScreen(
         }
     }
 
-    if (showDatePicker) {
+    val target = dateTarget
+    if (target != null) {
+        val initialDate = when (target) {
+            DateTarget.LAST_DONE -> state.form.lastDoneAt
+            DateTarget.START -> state.form.startDate
+            DateTarget.END -> state.form.endDate ?: state.form.startDate
+        }
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = state.form.lastDoneAt.toUtcMillis(),
+            initialSelectedDateMillis = initialDate.toUtcMillis(),
         )
         DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
+            onDismissRequest = { dateTarget = null },
             confirmButton = {
                 TextButton(
                     onClick = {
                         pickerState.selectedDateMillis?.let { millis ->
-                            viewModel.onLastDoneChange(millis.toUtcLocalDate())
+                            val picked = millis.toUtcLocalDate()
+                            when (target) {
+                                DateTarget.LAST_DONE -> viewModel.onLastDoneChange(picked)
+                                DateTarget.START -> viewModel.onStartDateChange(picked)
+                                DateTarget.END -> viewModel.onEndDateChange(picked)
+                            }
                         }
-                        showDatePicker = false
+                        dateTarget = null
                     },
                 ) {
                     Text("OK")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
+                TextButton(onClick = { dateTarget = null }) {
                     Text("Cancel")
                 }
             },
@@ -260,6 +475,12 @@ fun ItemFormScreen(
             },
         )
     }
+}
+
+private enum class DateTarget {
+    LAST_DONE,
+    START,
+    END,
 }
 
 private fun LocalDate.toUtcMillis(): Long =

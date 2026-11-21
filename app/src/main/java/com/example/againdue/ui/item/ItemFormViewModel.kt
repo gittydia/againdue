@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.againdue.data.repository.ItemRepository
 import com.example.againdue.domain.IntervalUnit
+import com.example.againdue.domain.RecurrencePattern
+import com.example.againdue.domain.WeekOrdinal
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -13,6 +15,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.time.Clock
+import java.time.DayOfWeek
 import java.time.LocalDate
 
 data class ItemFormUiState(
@@ -70,6 +73,23 @@ class ItemFormViewModel(
                                 unit = item.intervalUnit,
                                 lastDoneAt = item.lastDoneAt,
                                 note = item.note.orEmpty(),
+                                startDate = item.startDate ?: item.lastDoneAt,
+                                monthlyMode = when (val pattern = item.pattern) {
+                                    null -> MonthlyMode.INTERVAL
+                                    RecurrencePattern.MonthlyDate -> MonthlyMode.CALENDAR_DATE
+                                    is RecurrencePattern.MonthlyNthWeekday -> MonthlyMode.NTH_WEEKDAY
+                                },
+                                ordinal = (item.pattern as? RecurrencePattern.MonthlyNthWeekday)
+                                    ?.ordinal ?: WeekOrdinal.FIRST,
+                                dayOfWeek = (item.pattern as? RecurrencePattern.MonthlyNthWeekday)
+                                    ?.dayOfWeek ?: DayOfWeek.MONDAY,
+                                endMode = when {
+                                    item.endAfterCount != null -> RecurrenceEndMode.AFTER_COUNT
+                                    item.endDate != null -> RecurrenceEndMode.ON_DATE
+                                    else -> RecurrenceEndMode.NEVER
+                                },
+                                endDate = item.endDate,
+                                endAfterCountText = item.endAfterCount?.toString().orEmpty(),
                             ),
                         )
                     }
@@ -108,6 +128,49 @@ class ItemFormViewModel(
         _uiState.update { it.copy(form = it.form.copy(note = value)) }
     }
 
+    fun onStartDateChange(date: LocalDate) {
+        _uiState.update { it.copy(form = it.form.copy(startDate = date)) }
+    }
+
+    fun onMonthlyModeChange(mode: MonthlyMode) {
+        _uiState.update { it.copy(form = it.form.copy(monthlyMode = mode)) }
+    }
+
+    fun onOrdinalChange(ordinal: WeekOrdinal) {
+        _uiState.update { it.copy(form = it.form.copy(ordinal = ordinal)) }
+    }
+
+    fun onDayOfWeekChange(dayOfWeek: DayOfWeek) {
+        _uiState.update { it.copy(form = it.form.copy(dayOfWeek = dayOfWeek)) }
+    }
+
+    fun onEndModeChange(mode: RecurrenceEndMode) {
+        _uiState.update {
+            it.copy(
+                form = it.form.copy(endMode = mode),
+                errors = it.errors.copy(end = null),
+            )
+        }
+    }
+
+    fun onEndDateChange(date: LocalDate) {
+        _uiState.update {
+            it.copy(
+                form = it.form.copy(endDate = date),
+                errors = it.errors.copy(end = null),
+            )
+        }
+    }
+
+    fun onEndAfterCountChange(value: String) {
+        _uiState.update {
+            it.copy(
+                form = it.form.copy(endAfterCountText = value),
+                errors = it.errors.copy(end = null),
+            )
+        }
+    }
+
     fun save() {
         val form = _uiState.value.form
         val errors = form.errors()
@@ -116,6 +179,13 @@ class ItemFormViewModel(
             return
         }
         val intervalValue = form.intervalValueOrNull() ?: return
+        val pattern = form.pattern()
+        val endDate = if (form.endMode == RecurrenceEndMode.ON_DATE) form.endDate else null
+        val endAfterCount = if (form.endMode == RecurrenceEndMode.AFTER_COUNT) {
+            form.endAfterCountOrNull()
+        } else {
+            null
+        }
         val id = itemId
 
         viewModelScope.launch {
@@ -127,6 +197,10 @@ class ItemFormViewModel(
                     intervalUnit = form.unit,
                     lastDoneAt = form.lastDoneAt,
                     note = form.note,
+                    startDate = form.startDate,
+                    pattern = pattern,
+                    endDate = endDate,
+                    endAfterCount = endAfterCount,
                 )
                 eventsChannel.send(ItemFormEvent.Saved)
             } else {
@@ -137,6 +211,10 @@ class ItemFormViewModel(
                     intervalUnit = form.unit,
                     lastDoneAt = form.lastDoneAt,
                     note = form.note,
+                    startDate = form.startDate,
+                    pattern = pattern,
+                    endDate = endDate,
+                    endAfterCount = endAfterCount,
                 )
                 _uiState.update { it.copy(isSaving = false) }
                 eventsChannel.send(if (updated) ItemFormEvent.Saved else ItemFormEvent.Missing)

@@ -76,7 +76,7 @@ class ReminderScheduler(
             return false
         }
         val current = settings.current()
-        if (!current.enabled || item.archived) {
+        if (!current.enabled || item.archived || item.recurrenceEnded) {
             alarms.cancel(itemId)
             notifications.cancel(itemId)
             return false
@@ -110,7 +110,7 @@ class ReminderScheduler(
             return
         }
         val current = settings.current()
-        if (!current.enabled || item.archived) {
+        if (!current.enabled || item.archived || item.recurrenceEnded) {
             alarms.cancel(itemId)
             notifications.cancel(itemId)
             return
@@ -133,7 +133,7 @@ class ReminderScheduler(
             notifications.cancel(item.id)
             return
         }
-        if (item.archived) {
+        if (item.archived || item.recurrenceEnded) {
             forget(item.id)
             return
         }

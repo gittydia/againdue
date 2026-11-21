@@ -51,6 +51,24 @@ class ReminderSchedulerTest {
     }
 
     @Test
+    fun syncItemForEndedRecurrenceForgetsEverything() = runBlocking {
+        val harness = harness(
+            now = "2026-11-17T08:00:00Z",
+            item = item(recurrenceEnded = true),
+        )
+        harness.state.snooze[ITEM_ID] = harness.now.plusSeconds(60)
+        harness.state.notified[ITEM_ID] = 20_000
+
+        harness.scheduler.syncItem(ITEM_ID)
+
+        assertFalse(harness.alarms.scheduled.containsKey(ITEM_ID))
+        assertTrue(harness.alarms.cancelled.contains(ITEM_ID))
+        assertTrue(harness.notifications.cancelled.contains(ITEM_ID))
+        assertNull(harness.state.snooze[ITEM_ID])
+        assertNull(harness.state.notified[ITEM_ID])
+    }
+
+    @Test
     fun deliverShowsOnceAndMarksDueDate() = runBlocking {
         val harness = harness(now = "2026-11-17T10:00:00Z")
 
@@ -179,7 +197,10 @@ class ReminderSchedulerTest {
         )
     }
 
-    private fun item(archived: Boolean = false): Item {
+    private fun item(
+        archived: Boolean = false,
+        recurrenceEnded: Boolean = false,
+    ): Item {
         val due = LocalDate.of(2026, 11, 17)
         return Item(
             id = ITEM_ID,
@@ -189,6 +210,7 @@ class ReminderSchedulerTest {
             lastDoneAt = due.minusDays(1),
             nextDueAt = due,
             archived = archived,
+            recurrenceEnded = recurrenceEnded,
             createdAt = Instant.parse("2026-11-01T00:00:00Z"),
             updatedAt = Instant.parse("2026-11-16T00:00:00Z"),
         )

@@ -99,6 +99,30 @@ class ItemFormScreenTest {
         assertEquals("Water filter", items.single().name)
         assertEquals(3, items.single().intervalValue)
         assertEquals(IntervalUnit.DAY, items.single().intervalUnit)
+        assertEquals(null, items.single().reminderMinuteOfDay)
+    }
+
+    @Test
+    fun save_withCustomReminderTime_persistsOverride() {
+        val closed = AtomicBoolean(false)
+        val viewModel = ItemFormViewModel(repository, clock)
+
+        composeRule.setContent {
+            AgainDueTheme {
+                ItemFormScreen(viewModel = viewModel, onClose = { closed.set(true) })
+            }
+        }
+
+        composeRule.onNodeWithTag("name_field").performTextInput("Water filter")
+        composeRule.onNodeWithTag("interval_field").performTextInput("3")
+        composeRule.onNodeWithTag("reminder_time_custom").performScrollTo().performClick()
+        composeRule.onNodeWithTag("reminder_time_button").assertIsDisplayed()
+        composeRule.onNodeWithTag("save_button").performScrollTo().performClick()
+
+        composeRule.waitUntil(5_000) { closed.get() }
+
+        val items = runBlocking { database.itemDao().observeActive().first() }
+        assertEquals(9 * 60, items.single().reminderMinuteOfDay)
     }
 
     @Test

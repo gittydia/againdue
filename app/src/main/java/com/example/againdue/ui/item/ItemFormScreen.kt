@@ -340,6 +340,12 @@ fun ItemFormScreen(
                     }
                 }
 
+                ItemReminderTimeSection(
+                    form = state.form,
+                    onUseCustomTimeChange = viewModel::onUseCustomReminderTimeChange,
+                    onTimeChange = viewModel::onReminderTimeChange,
+                )
+
                 val preview = recurrencePreview(
                     RecurrenceConfig(
                         intervalValue = state.form.intervalValueOrNull() ?: 1,

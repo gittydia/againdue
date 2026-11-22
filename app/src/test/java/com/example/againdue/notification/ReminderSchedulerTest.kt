@@ -48,6 +48,23 @@ class ReminderSchedulerTest {
     }
 
     @Test
+    fun scheduleResetClearsTransientStateBeforePlanningDueTodayReminder() = runBlocking {
+        val harness = harness(now = "2026-11-17T10:00:00Z")
+        harness.state.snooze[ITEM_ID] = harness.now.plus(1, ChronoUnit.DAYS)
+        harness.state.notified[ITEM_ID] = harness.item.nextDueAt.toEpochDay()
+
+        harness.scheduler.onItemScheduleReset(ITEM_ID)
+
+        assertNull(harness.state.snooze[ITEM_ID])
+        assertNull(harness.state.notified[ITEM_ID])
+        assertTrue(harness.notifications.cancelled.contains(ITEM_ID))
+        assertEquals(
+            harness.now.plus(ReminderScheduleCalculator.OVERDUE_DELAY),
+            harness.alarms.scheduled[ITEM_ID],
+        )
+    }
+
+    @Test
     fun syncItemForArchivedItemForgetsEverything() = runBlocking {
         val harness = harness(
             now = "2026-11-17T08:00:00Z",

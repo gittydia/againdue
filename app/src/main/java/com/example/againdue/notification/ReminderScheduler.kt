@@ -46,6 +46,16 @@ class ReminderScheduler(
         schedule(item, settings.current(), Instant.now(clock), cancelNotification = true)
     }
 
+    override suspend fun onItemScheduleReset(itemId: Long) {
+        state.clear(itemId)
+        val item = items.find(itemId)
+        if (item == null) {
+            forget(itemId)
+            return
+        }
+        schedule(item, settings.current(), Instant.now(clock), cancelNotification = true)
+    }
+
     override suspend fun onItemDeleted(itemId: Long) {
         forget(itemId)
     }

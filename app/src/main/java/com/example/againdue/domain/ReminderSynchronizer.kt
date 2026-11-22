@@ -11,6 +11,9 @@ interface ReminderSynchronizer {
     /** Reconciles the reminder for one item after a create, update, or restore. */
     suspend fun syncItem(itemId: Long)
 
+    /** Rebuilds an item's reminder after changing the date it was last completed. */
+    suspend fun onItemScheduleReset(itemId: Long)
+
     /** Cancels every reminder artifact for a deleted item. */
     suspend fun onItemDeleted(itemId: Long)
 
@@ -18,6 +21,7 @@ interface ReminderSynchronizer {
         /** Default for tests and callers that do not need reminder side effects. */
         val None: ReminderSynchronizer = object : ReminderSynchronizer {
             override suspend fun syncItem(itemId: Long) = Unit
+            override suspend fun onItemScheduleReset(itemId: Long) = Unit
             override suspend fun onItemDeleted(itemId: Long) = Unit
         }
     }

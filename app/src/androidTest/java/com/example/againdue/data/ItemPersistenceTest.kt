@@ -7,6 +7,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.example.againdue.data.local.AppDatabase
 import com.example.againdue.data.repository.ItemRepository
 import com.example.againdue.domain.IntervalUnit
+import com.example.againdue.domain.ReminderSynchronizer
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -107,6 +108,57 @@ class ItemPersistenceTest {
         assertEquals(LocalDate.of(2026, 11, 12), item.lastDoneAt)
         assertEquals(LocalDate.of(2026, 11, 26), item.nextDueAt)
         assertEquals("Balcony and hallway", item.note)
+    }
+
+    @Test
+    fun editLastDone_resetsReminderSchedule() = runBlocking {
+        val id = repository.createItem(
+            name = "Water plants",
+            intervalValue = 7,
+            intervalUnit = IntervalUnit.DAY,
+            lastDoneAt = LocalDate.of(2026, 11, 10),
+        )
+        val reminders = RecordingReminderSynchronizer()
+        repository = ItemRepository(database, clock, reminders)
+
+        assertTrue(
+            repository.updateItem(
+                id = id,
+                name = "Water plants",
+                intervalValue = 7,
+                intervalUnit = IntervalUnit.DAY,
+                lastDoneAt = LocalDate.of(2026, 11, 11),
+            ),
+        )
+
+        assertEquals(listOf(id), reminders.scheduleResets)
+        assertTrue(reminders.syncedItems.isEmpty())
+    }
+
+    @Test
+    fun editWithoutLastDoneChange_normallySyncsReminder() = runBlocking {
+        val lastDoneAt = LocalDate.of(2026, 11, 10)
+        val id = repository.createItem(
+            name = "Water plants",
+            intervalValue = 7,
+            intervalUnit = IntervalUnit.DAY,
+            lastDoneAt = lastDoneAt,
+        )
+        val reminders = RecordingReminderSynchronizer()
+        repository = ItemRepository(database, clock, reminders)
+
+        assertTrue(
+            repository.updateItem(
+                id = id,
+                name = "Water all plants",
+                intervalValue = 7,
+                intervalUnit = IntervalUnit.DAY,
+                lastDoneAt = lastDoneAt,
+            ),
+        )
+
+        assertEquals(listOf(id), reminders.syncedItems)
+        assertTrue(reminders.scheduleResets.isEmpty())
     }
 
     @Test
@@ -276,6 +328,21 @@ class ItemPersistenceTest {
         simulateRestart()
 
         assertTrue(repository.observeActiveItems().first().isEmpty())
+    }
+
+    private class RecordingReminderSynchronizer : ReminderSynchronizer {
+        val syncedItems = mutableListOf<Long>()
+        val scheduleResets = mutableListOf<Long>()
+
+        override suspend fun syncItem(itemId: Long) {
+            syncedItems += itemId
+        }
+
+        override suspend fun onItemScheduleReset(itemId: Long) {
+            scheduleResets += itemId
+        }
+
+        override suspend fun onItemDeleted(itemId: Long) = Unit
     }
 
     private companion object {

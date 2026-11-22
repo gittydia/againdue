@@ -152,7 +152,11 @@ class ItemRepository(
             reminderMinuteOfDay = reminderMinuteOfDay,
         )
         itemDao.update(updated)
-        reminderSynchronizer.syncItem(id)
+        if (existing.lastDoneAt != lastDoneAt) {
+            reminderSynchronizer.onItemScheduleReset(id)
+        } else {
+            reminderSynchronizer.syncItem(id)
+        }
         return true
     }
 
